@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="it" class="h-full bg-gray-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulatore Buoni Postali | NextGen</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.0/flowbite.min.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { poste: { yellow: '#FFD300', blue: '#003876', lightBlue: '#E6F0FA' } }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+    </style>
+</head>
+<body class="h-full flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="bg-white border-b border-gray-200 px-4 py-2.5 shadow-sm fixed w-full z-20 top-0 start-0">
+        <div class="container flex flex-wrap items-center justify-between mx-auto">
+            <a href="#" class="flex items-center space-x-3 rtl:space-x-reverse">
+                <div class="bg-poste-blue text-white p-2 rounded-lg font-bold text-xl">BSF</div>
+                <span class="self-center text-2xl font-semibold whitespace-nowrap text-poste-blue">Simulatore Avanzato</span>
+            </a>
+            <div class="flex space-x-4 items-center">
+                <a href="/guide.html" class="text-gray-600 hover:text-poste-blue font-medium flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                    Guida & Manuale
+                </a>
+                <button onclick="document.getElementById('compareModal').classList.remove('hidden')" class="text-gray-600 hover:text-poste-blue font-medium">Confronta Scenari (<span id="compareCount">0</span>)</button>
+                <button onclick="window.location.reload()" class="text-gray-500 hover:text-poste-blue">Nuova Simulazione</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mx-auto mt-24 px-4 pb-12 flex-grow">
+        
+        <!-- Input Section -->
+        <div id="inputSection" class="grid md:grid-cols-2 gap-8 mb-8">
+            <!-- Card Simulazione Manuale -->
+            <div class="w-full bg-white border border-gray-200 rounded-2xl shadow-lg p-8">
+                <h5 class="text-2xl font-bold text-gray-900 mb-2">Simulazione Rapida</h5>
+                <p class="text-gray-500 mb-6">Calcola rendita e piano di ammortamento.</p>
+                <form id="simForm" class="space-y-5">
+                    <div>
+                        <label class="block mb-2 text-sm font-medium text-gray-900">Tipologia Buono</label>
+                        <select id="type" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5">
+                            <option value="Obiettivo65">Buono Obiettivo 65</option>
+                            <option value="SoluzioneFuturo">Buono Soluzione Futuro</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block mb-2 text-sm font-medium text-gray-900">Data Nascita</label>
+                            <input type="date" id="birthDate" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5" required>
+                        </div>
+                        <div>
+                            <label class="block mb-2 text-sm font-medium text-gray-900">Importo (€)</label>
+                            <input type="number" id="amount" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5" required>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block mb-2 text-sm font-medium text-gray-900">Data Sottoscrizione (Opzionale)</label>
+                        <input type="date" id="subscriptionDate" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5">
+                    </div>
+                    <button type="submit" class="w-full text-white bg-poste-blue hover:bg-blue-800 font-medium rounded-lg text-sm px-5 py-3">Calcola Dettagli</button>
+                </form>
+            </div>
+
+            <!-- Card Upload Excel -->
+            <div class="w-full bg-white border border-gray-200 rounded-2xl shadow-lg p-8 flex flex-col">
+                 <h5 class="text-2xl font-bold text-gray-900 mb-2">Analisi Portafoglio</h5>
+                 <p class="text-gray-500 mb-6">Importa Excel per vedere tutti i tuoi buoni.</p>
+                 <form id="uploadForm" class="space-y-5 flex-grow flex flex-col">
+                    <div>
+                        <label class="block mb-2 text-sm font-medium text-gray-900">Data Nascita Intestatario</label>
+                        <input type="date" id="ownerBirthDate" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg block w-full p-2.5" required>
+                    </div>
+                    <div class="flex-grow flex flex-col justify-center border-2 border-gray-300 border-dashed rounded-lg bg-gray-50 hover:bg-gray-100 cursor-pointer relative">
+                        <input id="excelFile" type="file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".xlsx" required />
+                        <div class="text-center p-6">
+                            <p class="text-sm text-gray-500 font-semibold">Clicca o trascina il file Excel</p>
+                            <p id="fileNameDisplay" class="text-xs text-poste-blue mt-2 font-bold hidden"></p>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full text-white bg-gray-800 hover:bg-gray-900 font-medium rounded-lg text-sm px-5 py-3">Analizza File</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Excel Results Table -->
+        <div id="excelResultsCard" class="hidden bg-white border border-gray-200 rounded-2xl shadow-lg overflow-hidden mb-12">
+            <div class="p-6 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                <h3 class="text-xl font-bold text-gray-900">Portafoglio Buoni</h3>
+                <button onclick="showPortfolioTotal()" class="text-white bg-poste-blue hover:bg-blue-800 font-medium rounded-lg text-sm px-5 py-2.5 shadow-md transition-all">
+                    Vedi Riepilogo Totale
+                </button>
+            </div>
+            <div class="relative overflow-x-auto max-h-[400px]">
+                <table class="w-full text-sm text-left text-gray-500">
+                    <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0 z-10">
+                        <tr>
+                            <th class="px-6 py-3">Tipologia</th>
+                            <th class="px-6 py-3">Sottoscrizione</th>
+                            <th class="px-6 py-3">Nominale</th>
+                            <th class="px-6 py-3">Valore Oggi</th>
+                            <th class="px-6 py-3">Rata Netta (Est.)</th>
+                            <th class="px-6 py-3">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="excelTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- DETAILED VIEW (Overlay/Section) -->
+        <div id="detailSection" class="hidden animate-fade-in pb-20">
+            
+            <!-- PROIEZIONE & GAP ANALYSIS SECTION -->
+            <div class="grid lg:grid-cols-3 gap-6 mb-8">
+                <!-- Gap Pensionistico -->
+                <div class="bg-gradient-to-br from-gray-800 to-gray-900 text-white p-6 rounded-xl shadow-lg col-span-1">
+                    <h6 class="text-yellow-400 text-sm uppercase font-bold mb-4">Analisi Gap Pensionistico</h6>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-xs text-gray-400">Ultimo Stipendio Netto (€)</label>
+                            <input type="number" id="salaryInput" class="bg-gray-700 border-gray-600 text-white text-sm rounded-lg w-full p-2 mt-1" placeholder="Es. 2000">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-400">Tasso Sostituzione Atteso (%)</label>
+                            <input type="number" id="replacementRate" class="bg-gray-700 border-gray-600 text-white text-sm rounded-lg w-full p-2 mt-1" value="70">
+                        </div>
+                        <div class="pt-4 border-t border-gray-700">
+                            <p class="text-xs text-gray-400">Copertura Gap Mensile:</p>
+                            <div class="flex justify-between items-end">
+                                <span id="gapCoveragePercent" class="text-3xl font-bold text-yellow-400">0%</span>
+                                <span id="gapValue" class="text-sm text-gray-300">Mancano € 0</span>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-2.5 mt-2">
+                                <div id="gapBar" class="bg-yellow-400 h-2.5 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Inflazione -->
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 col-span-1">
+                    <h6 class="text-gray-500 text-sm uppercase font-bold mb-4">Proiezione Inflazione</h6>
+                    <label for="inflationSlider" class="block mb-2 text-sm font-medium text-gray-900">Tasso Inflazione Medio: <span id="infVal" class="text-poste-blue font-bold">0%</span></label>
+                    <input id="inflationSlider" type="range" min="0" max="10" value="0" step="0.5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    
+                    <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+                        <p class="text-xs text-gray-500">Rata Rivalutata (Stima):</p>
+                        <p id="infRata" class="text-2xl font-bold text-gray-900">€ -</p>
+                        <p class="text-xs text-green-600 font-medium mt-1" id="infDelta">+ € 0 (vs Base)</p>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200 col-span-1 flex flex-col justify-between">
+                    <h6 class="text-gray-500 text-sm uppercase font-bold mb-4">Azioni Rapide</h6>
+                    <div class="space-y-3">
+                        <button onclick="saveScenario()" class="w-full text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 font-medium rounded-lg text-sm px-5 py-2.5 flex items-center justify-center gap-2">
+                            <span>💾</span> Salva per Confronto
+                        </button>
+                        <button onclick="downloadPDF()" class="w-full text-white bg-red-600 hover:bg-red-700 font-medium rounded-lg text-sm px-5 py-2.5 flex items-center justify-center gap-2">
+                            <span>📄</span> Scarica Report PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="grid md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-poste-blue">
+                    <h6 class="text-gray-500 text-sm uppercase font-bold mb-2">Dati <span id="detLabel">Buono</span></h6>
+                    <p class="text-sm">Investimento Totale: <span class="font-bold text-gray-900 text-lg block" id="detNominale">€ -</span></p>
+                    <p class="text-sm mt-2">Valore di Riscatto Oggi: <span class="font-bold text-green-600 block" id="detRiscatto">€ -</span></p>
+                    <p class="text-sm mt-2">Montante Garantito 65 anni: <span class="font-bold text-poste-blue block" id="detMontante65">€ -</span></p>
+                    <p class="text-sm mt-2 text-xs text-gray-400">Scadenza: <span id="detEndDate">-</span></p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-green-500">
+                    <h6 class="text-gray-500 text-sm uppercase font-bold mb-2">Rata Base (Netto Fiscale)</h6>
+                    <div class="flex items-end">
+                        <span class="text-4xl font-bold text-green-600" id="detRataNetta">€ -</span>
+                        <span class="text-gray-400 text-sm mb-1 ml-2">/ mese</span>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-2">*Esclusi bolli.</p>
+                    <p class="text-xs text-gray-500 mt-2 font-medium">TIR Stimato: <span id="detTIR" class="text-poste-blue">-%</span></p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-poste-yellow">
+                    <h6 class="text-gray-500 text-sm uppercase font-bold mb-2">Stima "In Tasca"</h6>
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-sm"><span>Rata Fiscale:</span><span class="font-semibold" id="calcRata">-</span></div>
+                        <div class="flex justify-between text-sm text-red-500"><span id="lblBollo">Stima Bollo:</span><span class="font-semibold" id="calcBollo">-</span></div>
+                        <div class="border-t pt-2 flex justify-between text-lg font-bold text-poste-blue"><span>Netto Reale:</span><span id="calcReale">€ -</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GRAFICO -->
+            <div class="bg-white border border-gray-200 rounded-2xl shadow-lg p-6 mb-8">
+                <h3 class="text-xl font-bold text-gray-900 mb-4">Evoluzione Capitale</h3>
+                <div class="relative h-80 w-full">
+                    <canvas id="capitalChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Schedule Table -->
+            <div class="bg-white border border-gray-200 rounded-2xl shadow-lg overflow-hidden">
+                <div class="p-6 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                    <h3 class="text-xl font-bold text-gray-900">Piano di Erogazione</h3>
+                    <label class="inline-flex items-center cursor-pointer">
+                        <span class="mr-3 text-sm font-medium text-gray-900">Mensile</span>
+                        <input type="checkbox" id="toggleView" class="sr-only peer">
+                        <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-poste-blue"></div>
+                        <span class="ml-3 text-sm font-medium text-gray-900">Annuale</span>
+                    </label>
+                </div>
+                <div class="relative overflow-x-auto max-h-[500px]">
+                    <table class="w-full text-xs text-left text-gray-500" id="scheduleTable">
+                        <thead class="text-xs text-gray-700 uppercase bg-white sticky top-0 shadow-sm">
+                            <tr>
+                                <th class="px-4 py-3">Data</th>
+                                <th class="px-4 py-3">Età</th>
+                                <th class="px-4 py-3 text-right text-gray-400">Lordo</th>
+                                <th class="px-4 py-3 text-right text-red-400">Tasse</th>
+                                <th class="px-4 py-3 text-right font-semibold">Netto</th>
+                                <th class="px-4 py-3 text-right text-red-500">Bollo</th>
+                                <th class="px-4 py-3 text-right font-bold text-green-600 bg-green-50">In Tasca</th>
+                                <th class="px-4 py-3 text-right text-blue-600 border-l border-gray-100">Residuo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scheduleBody"></tbody>
+                        <tfoot class="bg-gray-100 font-bold text-gray-900">
+                            <tr>
+                                <td class="px-4 py-3" colspan="2">TOTALE</td>
+                                <td class="px-4 py-3 text-right" id="totalLordo">-</td>
+                                <td class="px-4 py-3 text-right text-red-400" id="totalRitenuta">-</td>
+                                <td class="px-4 py-3 text-right" id="totalNetto">-</td>
+                                <td class="px-4 py-3 text-right text-red-500" id="totalBollo">-</td>
+                                <td class="px-4 py-3 text-right text-green-600 bg-green-50" id="totalReale">-</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CONFRONTO -->
+    <div id="compareModal" class="fixed inset-0 z-50 hidden w-full p-4 overflow-x-hidden overflow-y-auto md:inset-0 h-[calc(100%-1rem)] max-h-full bg-gray-900 bg-opacity-50 flex items-center justify-center">
+        <div class="relative w-full max-w-4xl max-h-full">
+            <div class="relative bg-white rounded-lg shadow">
+                <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t">
+                    <h3 class="text-xl font-semibold text-gray-900">Confronto Scenari Salvati</h3>
+                    <button onclick="document.getElementById('compareModal').classList.add('hidden')" class="text-gray-400 hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center">✕</button>
+                </div>
+                <div class="p-4 md:p-5">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-gray-500">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-2">Scenario</th>
+                                    <th class="px-4 py-2">Investimento</th>
+                                    <th class="px-4 py-2">Montante 65</th>
+                                    <th class="px-4 py-2">Rata Netta</th>
+                                    <th class="px-4 py-2">Netto in Tasca</th>
+                                    <th class="px-4 py-2">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody id="compareBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            // --- GLOBAL STATE ---
+            let currentSimulation = null;
+            let currentPortfolioData = [];
+            let savedScenarios = [];
+            let chartInstance = null;
+
+            // --- HELPERS ---
+            const fmt = (n) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(n);
+
+            // --- TIR CALCULATION (IRR) ---
+            function calculateTIR(investment, monthlyPayout, yearsAccumulation, payoutYears) {
+                const totalPayout = monthlyPayout * 12 * payoutYears;
+                const totalDuration = yearsAccumulation + payoutYears;
+                if(investment <= 0) return 0;
+                const overallGain = (totalPayout / investment);
+                const tir = (Math.pow(overallGain, 1/totalDuration) - 1) * 100;
+                return tir > 0 ? tir.toFixed(2) : 0;
+            }
+
+            // 1. INFLATION LISTENER
+            document.getElementById('inflationSlider').addEventListener('input', function() {
+                document.getElementById('infVal').innerText = this.value + '%';
+                recalculateInflation(this.value);
+            });
+
+            function recalculateInflation(rate) {
+                if (!currentSimulation) return;
+                
+                const now = new Date();
+                const start = new Date(currentSimulation.startDate);
+                let yearsTo65 = start.getFullYear() - now.getFullYear();
+                if (yearsTo65 < 0) yearsTo65 = 0;
+
+                const montanteBase = currentSimulation.montante65;
+                const montanteInflazionato = currentSimulation.nominale * Math.pow(1 + rate/100, yearsTo65);
+                
+                let ratio = 1;
+                if (montanteInflazionato > montanteBase) {
+                    ratio = montanteInflazionato / montanteBase;
+                }
+
+                const rataInflazionata = currentSimulation.rata * ratio;
+                const delta = rataInflazionata - currentSimulation.rata;
+
+                document.getElementById('infRata').innerText = fmt(rataInflazionata);
+                document.getElementById('infDelta').innerText = (delta >= 0 ? "+" : "") + fmt(delta);
+                document.getElementById('infDelta').className = delta > 0 ? "text-xs text-green-600 font-medium mt-1" : "text-xs text-gray-400 font-medium mt-1";
+            }
+
+            // 2. PENSION GAP LISTENER
+            ['salaryInput', 'replacementRate'].forEach(id => {
+                document.getElementById(id).addEventListener('input', updateGapAnalysis);
+            });
+
+            function updateGapAnalysis() {
+                if (!currentSimulation) return;
+                const salary = parseFloat(document.getElementById('salaryInput').value) || 0;
+                const rate = parseFloat(document.getElementById('replacementRate').value) || 70;
+                
+                if (salary === 0) return;
+
+                const pensioneAttesa = salary * (rate / 100);
+                const gap = salary - pensioneAttesa;
+                
+                let bollo = (currentSimulation.nominale > 5000) ? (currentSimulation.nominale * 0.002 / 12) : 0;
+                const rataReale = currentSimulation.rata - bollo;
+
+                const coverage = (rataReale / gap) * 100;
+                const missing = gap - rataReale;
+
+                document.getElementById('gapCoveragePercent').innerText = coverage.toFixed(1) + '%';
+                document.getElementById('gapValue').innerText = missing > 0 ? `Mancano ${fmt(missing)}` : 'Gap Coperto!';
+                document.getElementById('gapBar').style.width = Math.min(coverage, 100) + '%';
+                document.getElementById('gapBar').className = coverage >= 100 ? "bg-green-500 h-2.5 rounded-full" : "bg-yellow-400 h-2.5 rounded-full";
+            }
+
+            // 3. CHART JS
+            function drawChart(data) {
+                const ctx = document.getElementById('capitalChart').getContext('2d');
+                if (chartInstance) chartInstance.destroy();
+
+                const labels = [];
+                const dataset = [];
+                
+                const nowYear = new Date().getFullYear();
+                const startYear = new Date(data.startDate).getFullYear();
+                const endYear = startYear + 15;
+
+                for (let y = nowYear; y < startYear; y++) {
+                    labels.push(y);
+                    const progress = (y - nowYear) / (startYear - nowYear);
+                    const val = data.nominale + (data.montante65 - data.nominale) * progress;
+                    dataset.push(val);
+                }
+
+                let currentCapital = data.montante65; 
+                const yearlyDrop = data.montante65 / 15; 
+
+                for (let y = startYear; y <= endYear; y++) {
+                    labels.push(y);
+                    dataset.push(currentCapital > 0 ? currentCapital : 0);
+                    currentCapital -= yearlyDrop;
+                }
+
+                chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Valore Capitale Residuo',
+                            data: dataset,
+                            borderColor: '#003876',
+                            backgroundColor: 'rgba(0, 56, 118, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { y: { beginAtZero: true } }
+                    }
+                });
+            }
+
+            // 4. PDF EXPORT - EXPOSED GLOBALLY for onclick
+            window.downloadPDF = function() {
+                if (!currentSimulation) return;
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                doc.setFontSize(18);
+                doc.setTextColor(0, 56, 118);
+                doc.text("Report Simulazione Buoni Postali", 14, 20);
+                
+                doc.setFontSize(12);
+                doc.setTextColor(0, 0, 0);
+                doc.text(`Data Report: ${new Date().toLocaleDateString()}`, 14, 30);
+                
+                const summaryData = [
+                    ["Investimento Nominale", fmt(currentSimulation.nominale)],
+                    ["Valore Riscatto Oggi", fmt(currentSimulation.riscatto)],
+                    ["Montante a 65 Anni", fmt(currentSimulation.montante65)],
+                    ["Rata Mensile Netta", fmt(currentSimulation.rata)],
+                    ["Inizio Rendita", new Date(currentSimulation.startDate).toLocaleDateString()],
+                    ["Data Scadenza", new Date(currentSimulation.birthDate).toLocaleDateString()] 
+                ];
+
+                doc.autoTable({
+                    startY: 40,
+                    head: [['Voce', 'Valore']],
+                    body: summaryData,
+                    theme: 'striped',
+                    headStyles: { fillColor: [0, 56, 118] }
+                });
+
+                doc.text("Piano di Erogazione (Annuale)", 14, doc.lastAutoTable.finalY + 15);
+
+                const tableRows = [];
+                let currentDate = new Date(currentSimulation.startDate);
+                const monthly = currentSimulation.rata;
+                const lordo = monthly / 0.875;
+                const tax = lordo - monthly;
+                const bollo = (currentSimulation.nominale > 5000) ? (currentSimulation.nominale * 0.002)/12 : 0;
+                const pocket = monthly - bollo;
+
+                for(let i=0; i<15; i++) {
+                    tableRows.push([
+                        currentDate.getFullYear() + i,
+                        fmt(lordo * 12),
+                        fmt(tax * 12),
+                        fmt(pocket * 12)
+                    ]);
+                }
+
+                doc.autoTable({
+                    startY: doc.lastAutoTable.finalY + 20,
+                    head: [['Anno', 'Lordo', 'Tasse (12.5%)', 'Netto in Tasca']],
+                    body: tableRows,
+                    theme: 'grid'
+                });
+
+                doc.save("Report_Buoni.pdf");
+            }
+
+            // 5. SCENARIO MANAGER - EXPOSED GLOBALLY
+            window.saveScenario = function() {
+                if (!currentSimulation) return;
+                let bollo = (currentSimulation.nominale > 5000) ? (currentSimulation.nominale * 0.002 / 12) : 0;
+                const reale = currentSimulation.rata - bollo;
+
+                const scenario = {
+                    id: Date.now(),
+                    label: currentSimulation.isTotal ? "Portafoglio Totale" : `Simulazione ${savedScenarios.length + 1}`,
+                    nominale: currentSimulation.nominale,
+                    montante: currentSimulation.montante65,
+                    rata: currentSimulation.rata,
+                    reale: reale
+                };
+                
+                savedScenarios.push(scenario);
+                updateCompareTable();
+                document.getElementById('compareCount').innerText = savedScenarios.length;
+                alert("Scenario salvato! Clicca su 'Confronta Scenari' in alto.");
+            }
+
+            window.deleteScenario = function(id) {
+                savedScenarios = savedScenarios.filter(s => s.id !== id);
+                updateCompareTable();
+                document.getElementById('compareCount').innerText = savedScenarios.length;
+            }
+
+            function updateCompareTable() {
+                const tbody = document.getElementById('compareBody');
+                tbody.innerHTML = "";
+                savedScenarios.forEach(s => {
+                    tbody.innerHTML += `
+                        <tr class="bg-white border-b">
+                            <td class="px-4 py-2 font-medium">${s.label}</td>
+                            <td class="px-4 py-2">${fmt(s.nominale)}</td>
+                            <td class="px-4 py-2 text-blue-600">${fmt(s.montante)}</td>
+                            <td class="px-4 py-2">${fmt(s.rata)}</td>
+                            <td class="px-4 py-2 font-bold text-green-600">${fmt(s.reale)}</td>
+                            <td class="px-4 py-2">
+                                <button onclick="deleteScenario(${s.id})" class="text-red-500 hover:underline">Elimina</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            // --- EXPOSE RENDER/TOGGLE FUNCTIONS ---
+            
+            window.showPortfolioTotal = function() {
+                if (!currentPortfolioData || currentPortfolioData.length === 0) return;
+                let totalNominale = 0, totalRata = 0, totalMontante = 0, totalRiscatto = 0, commonStartDate = null;
+                let cO = 0, cF = 0;
+                currentPortfolioData.forEach(row => {
+                    if (row.stima_rata !== "N/A") {
+                        totalNominale += parseFloat(row.valore_nominale);
+                        totalRata += parseFloat(row.stima_rata);
+                        totalMontante += parseFloat(row.stima_montante_65);
+                        totalRiscatto += parseFloat(row.valore_riscatto_attuale);
+                        if (!commonStartDate) commonStartDate = row.data_inizio_rendita;
+                        if ((row['TIPOLOGIA']||'').toUpperCase().includes('FUTURO')) cF++; else cO++;
+                    }
+                });
+                renderDetailedView({
+                    nominale: totalNominale,
+                    rata: totalRata,
+                    startDate: commonStartDate,
+                    birthDate: document.getElementById('ownerBirthDate').value,
+                    montante65: totalMontante,
+                    riscatto: totalRiscatto,
+                    isTotal: true,
+                    counts: { o65: cO, sf: cF }
+                });
+            }
+
+            window.renderDetailedView = function(data) { // EXPOSED for inline onclicks
+                renderDetailedView(data);
+            }
+
+            // Internal render implementation
+            function renderDetailedView(data) {
+                currentSimulation = data;
+                document.getElementById('detailSection').classList.remove('hidden');
+                document.getElementById('detailSection').scrollIntoView({ behavior: 'smooth' });
+
+                document.getElementById('inflationSlider').value = 0;
+                document.getElementById('infVal').innerText = "0%";
+                document.getElementById('infRata').innerText = fmt(data.rata);
+                document.getElementById('infDelta').innerText = "+ € 0";
+
+                updateGapAnalysis();
+                drawChart(data);
+
+                const labelEl = document.getElementById('detLabel');
+                labelEl.innerHTML = data.isTotal ? `Portafoglio <span class="text-xs text-gray-500 block">(O.65: <b>${data.counts.o65}</b> | S.F: <b>${data.counts.sf}</b>)</span>` : "Buono Singolo";
+                
+                const start = new Date(data.startDate);
+                const end = new Date(start); end.setFullYear(end.getFullYear() + 15);
+
+                document.getElementById('detNominale').innerText = fmt(data.nominale);
+                document.getElementById('detRiscatto').innerText = fmt(data.riscatto);
+                document.getElementById('detMontante65').innerText = fmt(data.montante65);
+                document.getElementById('detEndDate').innerText = end.toLocaleDateString('it-IT', { month:'long', year:'numeric' });
+                document.getElementById('detRataNetta').innerText = fmt(data.rata);
+
+                const yearsAccumulation = start.getFullYear() - new Date().getFullYear();
+                const tir = calculateTIR(data.nominale, data.rata, yearsAccumulation, 15);
+                document.getElementById('detTIR').innerText = tir + "%";
+
+                let bolloAnnuo = (data.nominale <= 5000) ? 0 : data.nominale * 0.002;
+                let labelBollo = (data.nominale <= 5000) ? "Bollo (Esente ≤ 5k):" : "Stima Bollo (0.2%):";
+                let colorBollo = (data.nominale <= 5000) ? "text-green-600" : "text-red-500";
+                
+                const bolloMensile = bolloAnnuo / 12;
+                const realeMensile = data.rata - bolloMensile;
+
+                document.getElementById('calcRata').innerText = fmt(data.rata);
+                const bolloEl = document.getElementById('calcBollo');
+                bolloEl.innerText = (bolloAnnuo === 0 ? "" : "- ") + fmt(bolloMensile);
+                bolloEl.parentElement.className = `flex justify-between text-sm ${colorBollo}`;
+                bolloEl.parentElement.firstElementChild.innerText = labelBollo;
+                document.getElementById('calcReale').innerText = fmt(realeMensile);
+
+                document.getElementById('toggleView').checked = false;
+                generateScheduleTable(false);
+            }
+
+            // TOGGLE EVENT LISTENER (Inside DOMContentLoaded)
+            document.getElementById('toggleView').addEventListener('change', (e) => {
+                generateScheduleTable(e.target.checked);
+            });
+
+            function generateScheduleTable(isAnnual) {
+                if(!currentSimulation) return;
+                const tbody = document.getElementById('scheduleBody');
+                tbody.innerHTML = '';
+                
+                let currentDate = new Date(currentSimulation.startDate);
+                const monthly = currentSimulation.rata;
+                const lordo = monthly / 0.875;
+                const tax = lordo - monthly;
+                const bollo = (currentSimulation.nominale > 5000) ? (currentSimulation.nominale * 0.002)/12 : 0;
+                const pocket = monthly - bollo;
+
+                let residuo = pocket * 180; 
+                let sumLordo=0, sumTax=0, sumNetto=0, sumBollo=0, sumPocket=0;
+                const iterations = isAnnual ? 15 : 180;
+
+                for(let i=0; i<iterations; i++) {
+                    const f = isAnnual ? 12 : 1;
+                    const rLordo = lordo * f;
+                    const rTax = tax * f;
+                    const rNetto = monthly * f;
+                    const rBollo = bollo * f;
+                    const rPocket = pocket * f;
+
+                    sumLordo+=rLordo; sumTax+=rTax; sumNetto+=rNetto; sumBollo+=rBollo; sumPocket+=rPocket;
+                    residuo -= rPocket;
+                    if(residuo < 0.01) residuo = 0;
+
+                    const tr = document.createElement('tr');
+                    tr.className = "bg-white border-b hover:bg-gray-50";
+                    
+                    let dateCol, ageCol;
+                    if(isAnnual) {
+                        dateCol = currentDate.getFullYear() + i;
+                        ageCol = `Età ${65+i}`;
+                    } else {
+                        const d = new Date(currentDate); d.setMonth(d.getMonth()+i);
+                        dateCol = d.toLocaleDateString('it-IT', {month:'short', year:'2-digit'});
+                        ageCol = `Rata ${i+1}`;
+                    }
+
+                    tr.innerHTML = `
+                        <td class="px-4 py-3 font-medium text-gray-900">${dateCol}</td>
+                        <td class="px-4 py-3 text-gray-500">${ageCol}</td>
+                        <td class="px-4 py-3 text-right text-gray-400">${fmt(rLordo)}</td>
+                        <td class="px-4 py-3 text-right text-red-400">-${fmt(rTax)}</td>
+                        <td class="px-4 py-3 text-right font-medium">${fmt(rNetto)}</td>
+                        <td class="px-4 py-3 text-right text-red-500">-${fmt(rBollo)}</td>
+                        <td class="px-4 py-3 text-right font-bold text-green-600 bg-green-50">${fmt(rPocket)}</td>
+                        <td class="px-4 py-3 text-right text-blue-600 border-l border-gray-100 font-medium">${fmt(residuo)}</td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+                document.getElementById('totalLordo').innerText = fmt(sumLordo);
+                document.getElementById('totalRitenuta').innerText = "-"+fmt(sumTax);
+                document.getElementById('totalNetto').innerText = fmt(sumNetto);
+                document.getElementById('totalBollo').innerText = "-"+fmt(sumBollo);
+                document.getElementById('totalReale').innerText = fmt(sumPocket);
+            }
+
+            document.getElementById('simForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const data = {
+                    type: document.getElementById('type').value,
+                    birthDate: document.getElementById('birthDate').value,
+                    amount: document.getElementById('amount').value,
+                    subscriptionDate: document.getElementById('subscriptionDate').value
+                };
+                const res = await fetch('/api/simulate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                const json = await res.json();
+                if(json.success) {
+                    document.getElementById('excelResultsCard').classList.add('hidden');
+                    renderDetailedView({
+                        nominale: parseFloat(json.data.valore_nominale),
+                        rata: parseFloat(json.data.rataMensile),
+                        montante65: parseFloat(json.data.montante65),
+                        riscatto: parseFloat(json.data.valore_riscatto_attuale),
+                        startDate: json.data.data_inizio_rendita,
+                        birthDate: data.birthDate
+                    });
+                } else alert(json.message);
+            });
+
+            document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData();
+                formData.append('file', document.getElementById('excelFile').files[0]);
+                formData.append('birthDate', document.getElementById('ownerBirthDate').value);
+                
+                const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                const data = await res.json();
+                currentPortfolioData = data;
+                
+                const tbody = document.getElementById('excelTableBody');
+                tbody.innerHTML = '';
+                document.getElementById('excelResultsCard').classList.remove('hidden');
+                document.getElementById('detailSection').classList.add('hidden');
+
+                data.forEach((row) => {
+                    const tr = document.createElement('tr');
+                    tr.className = "bg-white border-b hover:bg-gray-50";
+                    // Data passed to onclick needs to be an object
+                    // We will call window.renderDetailedView passing the object
+                    const rowData = {
+                        nominale: parseFloat(row.valore_nominale),
+                        rata: parseFloat(row.stima_rata),
+                        startDate: row.data_inizio_rendita,
+                        birthDate: document.getElementById('ownerBirthDate').value,
+                        montante65: parseFloat(row.stima_montante_65),
+                        riscatto: parseFloat(row.valore_riscatto_attuale),
+                        isTotal: false
+                    };
+                    // Safe JSON string for HTML attribute
+                    const safeRowData = JSON.stringify(rowData).replace(/"/g, '&quot;');
+
+                    tr.innerHTML = `
+                        <td class="px-6 py-4 font-medium text-gray-900">${row['TIPOLOGIA'] || '-'}</td>
+                        <td class="px-6 py-4">${row['DATA SOTTOSCRIZIONE'] || '-'}</td>
+                        <td class="px-6 py-4">€ ${row.valore_nominale}</td>
+                        <td class="px-6 py-4 font-bold text-blue-600">€ ${row.valore_riscatto_attuale}</td>
+                        <td class="px-6 py-4 font-bold ${row.stima_rata==='N/A'?'text-gray-400':'text-green-600'}">${row.stima_rata}</td>
+                        <td class="px-6 py-4">
+                            ${row.stima_rata !== 'N/A' ? 
+                            `<button onclick="renderDetailedView(${safeRowData})" class="font-medium text-poste-blue hover:underline">Dettagli ></button>` 
+                            : '<span class="text-gray-400">-</span>'}
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            });
+
+            document.getElementById('excelFile').addEventListener('change', function() {
+                const name = this.files[0]?.name;
+                const disp = document.getElementById('fileNameDisplay');
+                if(name) { disp.textContent = name; disp.classList.remove('hidden'); }
+            });
+        });
+    </script>
+</body>
+</html>

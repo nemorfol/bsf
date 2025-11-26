@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="it" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guida Utente - Simulatore BSF</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { poste: { yellow: '#FFD300', blue: '#003876', lightBlue: '#E6F0FA' } }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .mockup-box { border: 2px dashed #e5e7eb; padding: 1.5rem; border-radius: 0.75rem; background-color: #ffffff; position: relative; }
+        .annotation { position: absolute; background: #fee2e2; color: #991b1b; font-size: 0.75rem; font-weight: bold; padding: 2px 8px; border-radius: 4px; border: 1px solid #fca5a5; z-index: 10; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; background-color: #003876; color: white; border-radius: 9999px; font-weight: bold; margin-right: 0.75rem; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <!-- Navbar -->
+    <nav class="bg-white border-b border-gray-200 px-4 py-3 shadow-sm sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-poste-blue text-white p-1.5 rounded font-bold text-lg">GUIDA</div>
+                <span class="font-semibold text-poste-blue text-lg">Manuale Operativo</span>
+            </div>
+            <a href="/" class="text-sm font-medium text-gray-600 hover:text-poste-blue flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                Torna al Simulatore
+            </a>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-10 max-w-5xl">
+        
+        <!-- Header -->
+        <header class="mb-12 text-center">
+            <h1 class="text-4xl font-extrabold text-gray-900 mb-4">Come usare il Simulatore</h1>
+            <p class="text-lg text-gray-600">Guida dettagliata alle funzionalità, alle logiche di calcolo e all'interpretazione dei dati.</p>
+        </header>
+
+        <!-- Table of Contents -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-12">
+            <h3 class="text-lg font-bold mb-4 text-poste-blue uppercase tracking-wider">Indice dei Contenuti</h3>
+            <div class="grid md:grid-cols-2 gap-4 text-sm">
+                <ul class="space-y-2">
+                    <li><a href="#intro" class="hover:underline hover:text-poste-blue">1. Panoramica e Scopo</a></li>
+                    <li><a href="#logica" class="hover:underline hover:text-poste-blue">2. Logiche Finanziarie (Tasse, Bolli, FOI)</a></li>
+                    <li><a href="#manuale" class="hover:underline hover:text-poste-blue">3. Simulazione Manuale (Passo Passo)</a></li>
+                </ul>
+                <ul class="space-y-2">
+                    <li><a href="#excel" class="hover:underline hover:text-poste-blue">4. Importazione Portafoglio Excel</a></li>
+                    <li><a href="#risultati" class="hover:underline hover:text-poste-blue">5. Interpretazione dei Risultati</a></li>
+                    <li><a href="#avanzate" class="hover:underline hover:text-poste-blue">6. Funzioni Avanzate (Scenari, PDF, Gap)</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- SEZIONE 1: INTRO -->
+        <section id="intro" class="mb-16">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center"><span class="step-number">1</span> Panoramica</h2>
+            <div class="prose max-w-none text-gray-600">
+                <p>Questo simulatore è progettato specificamente per i <strong>Buoni Fruttiferi Postali "Obiettivo 65"</strong> e <strong>"Soluzione Futuro"</strong>. A differenza dei buoni ordinari, questi prodotti sono strutturati in due fasi:</p>
+                <ul class="list-disc pl-5 mt-2 space-y-1">
+                    <li><strong>Fase di Accumulo:</strong> Dalla sottoscrizione fino ai 65 anni di età. Il capitale cresce.</li>
+                    <li><strong>Fase di Rendita:</strong> Dai 65 agli 80 anni. Viene erogata una rata mensile costante.</li>
+                </ul>
+                <p class="mt-2">Lo strumento permette di calcolare esattamente a quanto ammonterà questa rata e quale sarà il valore del capitale nel tempo.</p>
+            </div>
+        </section>
+
+        <!-- SEZIONE 2: LOGICHE -->
+        <section id="logica" class="mb-16 bg-blue-50 p-8 rounded-2xl border border-blue-100">
+            <h2 class="text-2xl font-bold text-poste-blue mb-6 flex items-center"><span class="step-number bg-poste-blue">2</span> Logiche Finanziarie</h2>
+            
+            <div class="grid md:grid-cols-2 gap-8">
+                <div>
+                    <h4 class="font-bold text-gray-900 mb-2">💰 Tassazione e Netto</h4>
+                    <p class="text-sm text-gray-600 mb-4">
+                        I rendimenti sono soggetti a una ritenuta fiscale agevolata del <strong>12,50%</strong>.
+                        <br>Il simulatore mostra sempre la <strong>Rata Netta Fiscale</strong> (ovvero ciò che resta dopo aver tolto il 12,5% allo Stato).
+                    </p>
+
+                    <h4 class="font-bold text-gray-900 mb-2">📉 Imposta di Bollo</h4>
+                    <p class="text-sm text-gray-600">
+                        Lo Stato applica un'imposta dello <strong>0,20% annuo</strong> sul capitale investito.
+                        <br><strong>Eccezione importante:</strong> Se il valore complessivo del portafoglio buoni è inferiore a <strong>5.000€</strong>, l'imposta di bollo è <strong>0€ (Esente)</strong>.
+                        <br><em>Il simulatore calcola automaticamente questa soglia nella sezione "Stima In Tasca".</em>
+                    </p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-gray-900 mb-2">🛡️ Protezione Inflazione (FOI)</h4>
+                    <p class="text-sm text-gray-600 mb-4">
+                        Il simulatore verifica se l'inflazione storica (Dati ISTAT FOI) ha superato il rendimento minimo garantito.
+                        <br>Se l'inflazione è alta, il valore di rimborso viene calcolato come:
+                        <br><code class="bg-white px-2 py-1 rounded text-xs">Capitale * (Indice FOI Oggi / Indice FOI Sottoscrizione)</code>
+                        <br>Viene sempre applicato il <strong>migliore</strong> tra il valore tabellare e quello inflazionato.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SEZIONE 3: MANUALE -->
+        <section id="manuale" class="mb-16">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center"><span class="step-number">3</span> Simulazione Manuale</h2>
+            <p class="mb-6 text-gray-600">Utilizza questa funzione per stimare un investimento futuro o singolo.</p>
+
+            <!-- Mockup UI -->
+            <div class="mockup-box bg-white shadow-sm">
+                <div class="grid md:grid-cols-2 gap-6 opacity-90 pointer-events-none select-none">
+                    <!-- Fake Form -->
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700">Tipologia Buono</label>
+                            <div class="border p-2 rounded bg-gray-50 text-gray-800">Buono Obiettivo 65</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700">Data di Nascita</label>
+                            <div class="border p-2 rounded bg-white text-gray-800">15/05/1980</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700">Importo (€)</label>
+                            <div class="border p-2 rounded bg-white text-gray-800">10000</div>
+                        </div>
+                        <div class="bg-poste-blue text-white text-center p-3 rounded font-bold">Calcola Dettagli</div>
+                    </div>
+                </div>
+
+                <!-- Annotazioni -->
+                <div class="annotation" style="top: 10%; left: -10px; transform: translateX(-100%);">1. Scegli il prodotto</div>
+                <div class="annotation" style="top: 35%; left: -10px; transform: translateX(-100%);">2. Cruciale per i coefficienti!</div>
+                <div class="annotation" style="top: 60%; left: -10px; transform: translateX(-100%);">3. Capitale Nominale</div>
+            </div>
+
+            <div class="mt-6 text-sm text-gray-600 space-y-2">
+                <p><strong>Attenzione alla Data di Nascita:</strong> Questi buoni dipendono strettamente dall'età. Un 40enne avrà un rendimento diverso da un 50enne. Inserisci la data precisa.</p>
+                <p><strong>Data Sottoscrizione:</strong> Se lasciata vuota, il sistema assume "Oggi". Utile per vedere quanto renderà un buono comprato adesso.</p>
+            </div>
+        </section>
+
+        <!-- SEZIONE 4: EXCEL -->
+        <section id="excel" class="mb-16">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center"><span class="step-number">4</span> Importazione Excel</h2>
+            <p class="mb-4 text-gray-600">Se hai scaricato il file <code>RPOL_PatrimonioBuoni.xlsx</code> dal sito delle Poste, puoi caricarlo qui.</p>
+
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+                <p class="font-bold text-yellow-800">Requisito Fondamentale</p>
+                <p class="text-sm text-yellow-700">Il file Excel delle Poste NON contiene la data di nascita dell'intestatario. Per questo motivo, <strong>devi inserirla manualmente</strong> nel campo apposito prima di caricare il file. Il simulatore userà questa data per calcolare l'età corretta per ogni riga del file.</p>
+            </div>
+
+            <div class="mockup-box">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-bold">Data di Nascita Intestatario</label>
+                        <div class="border p-2 rounded bg-white relative">
+                            01/01/1975
+                            <div class="annotation" style="top: -10px; right: -10px;">Inserisci PRIMA questo!</div>
+                        </div>
+                    </div>
+                    <div class="border-2 border-dashed border-gray-300 rounded p-8 text-center bg-gray-50">
+                        <p class="text-gray-500">Trascina qui il file .xlsx</p>
+                    </div>
+                    <div class="bg-gray-800 text-white text-center p-2 rounded">Analizza File</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SEZIONE 5: RISULTATI -->
+        <section id="risultati" class="mb-16">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center"><span class="step-number">5</span> Interpretazione Risultati</h2>
+            
+            <div class="grid gap-6">
+                <div class="border rounded-xl overflow-hidden shadow-sm">
+                    <div class="bg-gray-100 px-4 py-2 font-bold text-gray-700 border-b">Card Riepilogo</div>
+                    <div class="p-4 grid md:grid-cols-3 gap-4 bg-white">
+                        <div class="p-3 border-l-4 border-poste-blue bg-gray-50">
+                            <div class="text-xs text-gray-500 font-bold">VALORE RISCATTO OGGI</div>
+                            <div class="text-lg font-bold text-green-600">€ 10.250,00</div>
+                            <p class="text-xs mt-1">Quanto prendi se vendi ora.</p>
+                        </div>
+                        <div class="p-3 border-l-4 border-green-500 bg-gray-50">
+                            <div class="text-xs text-gray-500 font-bold">RATA MENSILE NETTA</div>
+                            <div class="text-lg font-bold text-green-600">€ 185,00</div>
+                            <p class="text-xs mt-1">Tasse 12.5% già pagate.</p>
+                        </div>
+                        <div class="p-3 border-l-4 border-poste-yellow bg-gray-50">
+                            <div class="text-xs text-gray-500 font-bold">NETTO REALE</div>
+                            <div class="text-lg font-bold text-poste-blue">€ 183,30</div>
+                            <p class="text-xs mt-1">Tolto anche il bollo (0.2%).</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="prose text-sm text-gray-600">
+                    <ul class="list-decimal pl-5 space-y-2">
+                        <li><strong>Valore Riscatto Oggi:</strong> È il massimo tra il valore garantito dalla tabella di rimborso anticipato e il capitale rivalutato all'inflazione (ISTAT FOI). Se vendi oggi, prendi questo.</li>
+                        <li><strong>Montante a 65 anni:</strong> Il capitale che avrai accumulato il giorno del tuo 65° compleanno. Questo capitale non ti viene dato tutto subito, ma genera la rendita.</li>
+                        <li><strong>Rata Netta:</strong> La rendita mensile fiscale.</li>
+                        <li><strong>Netto Reale ("In Tasca"):</strong> La rata vera che ti arriva sul conto corrente, dopo aver pagato anche l'imposta di bollo (se dovuta).</li>
+                        <li><strong>TIR Stimato:</strong> Il rendimento annuo composto percentuale dell'investimento. Utile per confrontarlo con BTP o Conti Deposito.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- SEZIONE 6: AVANZATE -->
+        <section id="avanzate" class="mb-16">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center"><span class="step-number">6</span> Funzioni Avanzate</h2>
+            
+            <div class="space-y-8">
+                <div>
+                    <h3 class="text-lg font-bold text-poste-blue mb-2">Analisi Gap Pensionistico</h3>
+                    <p class="text-gray-600 text-sm mb-2">Inserisci il tuo ultimo stipendio e la percentuale di pensione che ti aspetti (es. 70%). Il grafico ti mostrerà quanto la rendita dei buoni aiuta a coprire la differenza.</p>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-bold text-poste-blue mb-2">Slider Inflazione</h3>
+                    <p class="text-gray-600 text-sm mb-2">Sposta il cursore per ipotizzare un'inflazione futura media (es. 2%). Il sistema ricalcolerà la rata stimata se l'inflazione dovesse superare il rendimento minimo garantito.</p>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-bold text-poste-blue mb-2">Confronto Scenari</h3>
+                    <p class="text-gray-600 text-sm mb-2">
+                        1. Fai una simulazione.<br>
+                        2. Clicca su <strong>"Salva per Confronto"</strong>.<br>
+                        3. Fanne un'altra (es. con importo diverso o data diversa).<br>
+                        4. Clicca su <strong>"Confronta Scenari"</strong> nella barra in alto per vederli affiancati.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <footer class="text-center text-gray-400 text-sm border-t pt-8 mt-12">
+            <p>© 2025 Simulatore BSF NextGen - Guida Utente Integrata</p>
+        </footer>
+
+    </div>
+</body>
+</html>
