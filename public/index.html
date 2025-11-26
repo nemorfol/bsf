@@ -282,35 +282,39 @@
     </div>
 
     <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            let currentSimulation = null;
-            let currentPortfolioData = [];
-            let savedScenarios = [];
-            let chartInstance = null;
-
-            const fmt = (n) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(n);
-
-            function calculateTIR(investment, monthlyPayout, yearsAccumulation, payoutYears) {
-                const totalPayout = monthlyPayout * 12 * payoutYears;
-                const totalDuration = yearsAccumulation + payoutYears;
-                if(investment <= 0) return 0;
-                const overallGain = (totalPayout / investment);
-                const tir = (Math.pow(overallGain, 1/totalDuration) - 1) * 100;
-                return tir > 0 ? tir.toFixed(2) : 0;
-            }
-
-            function parseItalianDateClient(str) {
-                if(!str) return new Date();
-                const p = str.split('/');
-                if(p.length === 3) return new Date(`${p[2]}-${p[1]}-${p[0]}`);
-                return new Date();
-            }
-
-            document.getElementById('inflationSlider').addEventListener('input', function() {
-                document.getElementById('infVal').innerText = this.value + '%';
-                recalculateInflation(this.value);
-            });
-
+                    document.addEventListener("DOMContentLoaded", () => {
+                        let currentSimulation = null;
+                        let currentPortfolioData = [];
+                        let savedScenarios = [];
+                        let chartInstance = null;
+        
+                        const fmt = (n) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(n);
+        
+                        function calculateTIR(investment, monthlyPayout, yearsAccumulation, payoutYears) {
+                            const totalPayout = monthlyPayout * 12 * payoutYears;
+                            const totalDuration = yearsAccumulation + payoutYears;
+                            if(investment <= 0) return 0;
+                            const overallGain = (totalPayout / investment);
+                            const tir = (Math.pow(overallGain, 1/totalDuration) - 1) * 100;
+                            return tir > 0 ? tir.toFixed(2) : 0;
+                        }
+        
+                        function parseItalianDateClient(str) {
+                            if(!str) return new Date();
+                            const p = str.split('/');
+                            if(p.length === 3) return new Date(`${p[2]}-${p[1]}-${p[0]}`);
+                            return new Date();
+                        }
+        
+                        // Inizializza l'inflazione al 2% all'avvio
+                        document.getElementById('inflationSlider').value = "2";
+                        document.getElementById('infVal').innerText = "2%";
+                        // recalculateInflation(2); // Questo sarà chiamato da renderDetailedView alla prima simulazione
+        
+                        document.getElementById('inflationSlider').addEventListener('input', function() {
+                            document.getElementById('infVal').innerText = this.value + '%';
+                            recalculateInflation(this.value);
+                        });
             function recalculateInflation(rate) {
                 if (!currentSimulation) return;
                 const now = new Date();
@@ -569,10 +573,10 @@
                 document.getElementById('detailSection').classList.remove('hidden');
                 document.getElementById('detailSection').scrollIntoView({ behavior: 'smooth' });
 
-                document.getElementById('inflationSlider').value = 0;
-                document.getElementById('infVal').innerText = "0%";
-                document.getElementById('infRata').innerText = fmt(data.rata);
-                document.getElementById('infDelta').innerText = "+ € 0";
+                // Inizializza slider inflazione e ricalcola
+                const initialInflation = parseFloat(document.getElementById('inflationSlider').value);
+                document.getElementById('infVal').innerText = initialInflation + "%";
+                recalculateInflation(initialInflation);
 
                 updateGapAnalysis();
                 drawChart(data);
