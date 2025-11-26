@@ -5,8 +5,9 @@ const path = require('path');
 const { getCoefficients, getTabellaACoefficients } = require('./lib/coefficients');
 const { fetchIstatData, calculateInflationCoeff } = require('./lib/istat');
 
+const os = require('os');
 const app = express();
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ dest: os.tmpdir() });
 const port = 3000;
 
 // Avvio Server e Fetch Dati ISTAT
