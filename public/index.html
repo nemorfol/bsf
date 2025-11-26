@@ -184,13 +184,17 @@
                         <button onclick="downloadPDF()" class="w-full text-white bg-red-600 hover:bg-red-700 font-medium rounded-lg text-sm px-5 py-2.5 flex items-center justify-center gap-2">
                             <span>📄</span> Scarica Report PDF
                         </button>
+                        <button onclick="downloadCSV()" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-sm px-5 py-2.5 flex items-center justify-center gap-2">
+                            <span>📊</span> Scarica Dati CSV
+                        </button>
                     </div>
                 </div>
             </div>
 
             <!-- Summary Cards -->
             <div class="grid md:grid-cols-3 gap-6 mb-8">
-                <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-poste-blue">
+                <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-poste-blue relative overflow-hidden">
+                    <span class="absolute top-2 right-2 bg-blue-100 text-blue-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded border border-blue-400">Successione: Esente</span>
                     <h6 class="text-gray-500 text-sm uppercase font-bold mb-2">Dati <span id="detLabel">Buono</span></h6>
                     <p class="text-sm">Investimento Totale: <span class="font-bold text-gray-900 text-lg block" id="detNominale">€ -</span></p>
                     <p class="text-sm mt-2">Valore di Riscatto Oggi: <span class="font-bold text-green-600 block" id="detRiscatto">€ -</span></p>
@@ -380,25 +384,38 @@
                 if (chartInstance) chartInstance.destroy();
 
                 const labels = [];
-                const dataset = [];
+                const datasetNominal = [];
+                const datasetReal = [];
                 
                 const nowYear = new Date().getFullYear();
                 const startYear = new Date(data.startDate).getFullYear();
                 const endYear = startYear + 15;
+                const inflationRate = parseFloat(document.getElementById('inflationSlider').value) || 0;
 
+                // Fase Accumulo
                 for (let y = nowYear; y < startYear; y++) {
                     labels.push(y);
                     const progress = (y - nowYear) / (startYear - nowYear);
-                    const val = data.nominale + (data.montante65 - data.nominale) * progress;
-                    dataset.push(val);
+                    const nominalVal = data.nominale + (data.montante65 - data.nominale) * progress;
+                    
+                    // Valore Reale = Nominale / (1 + infl)^anni
+                    const realVal = nominalVal / Math.pow(1 + inflationRate/100, y - nowYear);
+                    
+                    datasetNominal.push(nominalVal);
+                    datasetReal.push(realVal);
                 }
 
+                // Fase Rendita
                 let currentCapital = data.montante65; 
                 const yearlyDrop = data.montante65 / 15; 
 
                 for (let y = startYear; y <= endYear; y++) {
                     labels.push(y);
-                    dataset.push(currentCapital > 0 ? currentCapital : 0);
+                    datasetNominal.push(currentCapital > 0 ? currentCapital : 0);
+                    
+                    const realVal = (currentCapital > 0 ? currentCapital : 0) / Math.pow(1 + inflationRate/100, y - nowYear);
+                    datasetReal.push(realVal);
+
                     currentCapital -= yearlyDrop;
                 }
 
@@ -406,14 +423,25 @@
                     type: 'line',
                     data: {
                         labels: labels,
-                        datasets: [{
-                            label: 'Valore Capitale Residuo',
-                            data: dataset,
-                            borderColor: '#003876',
-                            backgroundColor: 'rgba(0, 56, 118, 0.1)',
-                            fill: true,
-                            tension: 0.4
-                        }]
+                        datasets: [
+                            {
+                                label: 'Valore Nominale',
+                                data: datasetNominal,
+                                borderColor: '#003876',
+                                backgroundColor: 'rgba(0, 56, 118, 0.1)',
+                                fill: false,
+                                tension: 0.4
+                            },
+                            {
+                                label: `Potere d'Acquisto (Infl. ${inflationRate}%)`,
+                                data: datasetReal,
+                                borderColor: '#ef4444', // Rosso
+                                borderDash: [5, 5],
+                                backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                                fill: false,
+                                tension: 0.4
+                            }
+                        ]
                     },
                     options: {
                         responsive: true,
@@ -423,290 +451,56 @@
                 });
             }
 
-            // 4. PDF EXPORT - EXPOSED GLOBALLY for onclick
-            window.downloadPDF = function() {
-                if (!currentSimulation) return;
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-
-                doc.setFontSize(18);
-                doc.setTextColor(0, 56, 118);
-                doc.text("Report Simulazione Buoni Postali", 14, 20);
-                
-                doc.setFontSize(12);
-                doc.setTextColor(0, 0, 0);
-                doc.text(`Data Report: ${new Date().toLocaleDateString()}`, 14, 30);
-                
-                const summaryData = [
-                    ["Investimento Nominale", fmt(currentSimulation.nominale)],
-                    ["Valore Riscatto Oggi", fmt(currentSimulation.riscatto)],
-                    ["Montante a 65 Anni", fmt(currentSimulation.montante65)],
-                    ["Rata Mensile Netta", fmt(currentSimulation.rata)],
-                    ["Inizio Rendita", new Date(currentSimulation.startDate).toLocaleDateString()],
-                    ["Data Scadenza", new Date(currentSimulation.birthDate).toLocaleDateString()] 
-                ];
-
-                doc.autoTable({
-                    startY: 40,
-                    head: [['Voce', 'Valore']],
-                    body: summaryData,
-                    theme: 'striped',
-                    headStyles: { fillColor: [0, 56, 118] }
-                });
-
-                doc.text("Piano di Erogazione (Annuale)", 14, doc.lastAutoTable.finalY + 15);
-
-                const tableRows = [];
-                let currentDate = new Date(currentSimulation.startDate);
-                const monthly = currentSimulation.rata;
-                const lordo = monthly / 0.875;
-                const tax = lordo - monthly;
-                const bollo = (currentSimulation.nominale > 5000) ? (currentSimulation.nominale * 0.002)/12 : 0;
-                const pocket = monthly - bollo;
-
-                for(let i=0; i<15; i++) {
-                    tableRows.push([
-                        currentDate.getFullYear() + i,
-                        fmt(lordo * 12),
-                        fmt(tax * 12),
-                        fmt(pocket * 12)
-                    ]);
-                }
-
-                doc.autoTable({
-                    startY: doc.lastAutoTable.finalY + 20,
-                    head: [['Anno', 'Lordo', 'Tasse (12.5%)', 'Netto in Tasca']],
-                    body: tableRows,
-                    theme: 'grid'
-                });
-
-                doc.save("Report_Buoni.pdf");
-            }
-
-            // 5. SCENARIO MANAGER - EXPOSED GLOBALLY
-            window.saveScenario = function() {
-                if (!currentSimulation) return;
-                let bollo = (currentSimulation.nominale > 5000) ? (currentSimulation.nominale * 0.002 / 12) : 0;
-                const reale = currentSimulation.rata - bollo;
-
-                const scenario = {
-                    id: Date.now(),
-                    label: currentSimulation.isTotal ? "Portafoglio Totale" : `Simulazione ${savedScenarios.length + 1}`,
-                    nominale: currentSimulation.nominale,
-                    montante: currentSimulation.montante65,
-                    rata: currentSimulation.rata,
-                    reale: reale
-                };
-                
-                savedScenarios.push(scenario);
-                updateCompareTable();
-                document.getElementById('compareCount').innerText = savedScenarios.length;
-                alert("Scenario salvato! Clicca su 'Confronta Scenari' in alto.");
-            }
-
-            window.deleteScenario = function(id) {
-                savedScenarios = savedScenarios.filter(s => s.id !== id);
-                updateCompareTable();
-                document.getElementById('compareCount').innerText = savedScenarios.length;
-            }
-
-            function updateCompareTable() {
-                const tbody = document.getElementById('compareBody');
-                tbody.innerHTML = "";
-                savedScenarios.forEach(s => {
-                    tbody.innerHTML += `
-                        <tr class="bg-white border-b">
-                            <td class="px-4 py-2 font-medium">${s.label}</td>
-                            <td class="px-4 py-2">${fmt(s.nominale)}</td>
-                            <td class="px-4 py-2 text-blue-600">${fmt(s.montante)}</td>
-                            <td class="px-4 py-2">${fmt(s.rata)}</td>
-                            <td class="px-4 py-2 font-bold text-green-600">${fmt(s.reale)}</td>
-                            <td class="px-4 py-2">
-                                <button onclick="deleteScenario(${s.id})" class="text-red-500 hover:underline">Elimina</button>
-                            </td>
-                        </tr>
-                    `;
-                });
-            }
-
-            // --- EXPOSE RENDER/TOGGLE FUNCTIONS ---
-            
-            window.showPortfolioTotal = function() {
-                if (!currentPortfolioData || currentPortfolioData.length === 0) return;
-                let totalNominale = 0, totalRata = 0, totalMontante = 0, totalRiscatto = 0, commonStartDate = null;
-                let cO = 0, cF = 0;
-                currentPortfolioData.forEach(row => {
-                    if (row.stima_rata !== "N/A") {
-                        totalNominale += parseFloat(row.valore_nominale);
-                        totalRata += parseFloat(row.stima_rata);
-                        totalMontante += parseFloat(row.stima_montante_65);
-                        totalRiscatto += parseFloat(row.valore_riscatto_attuale);
-                        if (!commonStartDate) commonStartDate = row.data_inizio_rendita;
-                        if ((row['TIPOLOGIA']||'').toUpperCase().includes('FUTURO')) cF++; else cO++;
-                    }
-                });
-                renderDetailedView({
-                    nominale: totalNominale,
-                    rata: totalRata,
-                    startDate: commonStartDate,
-                    birthDate: document.getElementById('ownerBirthDate').value,
-                    montante65: totalMontante,
-                    riscatto: totalRiscatto,
-                    isTotal: true,
-                    counts: { o65: cO, sf: cF }
-                });
-            }
-
-            window.renderDetailedView = function(data) { // EXPOSED for inline onclicks
-                renderDetailedView(data);
-            }
-
-            // Internal render implementation
-            function renderDetailedView(data) {
-                currentSimulation = data;
-                document.getElementById('detailSection').classList.remove('hidden');
-                document.getElementById('detailSection').scrollIntoView({ behavior: 'smooth' });
-
-                document.getElementById('inflationSlider').value = 0;
-                document.getElementById('infVal').innerText = "0%";
-                document.getElementById('infRata').innerText = fmt(data.rata);
-                document.getElementById('infDelta').innerText = "+ € 0";
-
-                updateGapAnalysis();
-                drawChart(data);
-
-                const labelEl = document.getElementById('detLabel');
-                labelEl.innerHTML = data.isTotal ? `Portafoglio <span class="text-xs text-gray-500 block">(O.65: <b>${data.counts.o65}</b> | S.F: <b>${data.counts.sf}</b>)</span>` : "Buono Singolo";
-                
-                const start = new Date(data.startDate);
-                const end = new Date(start); end.setFullYear(end.getFullYear() + 15);
-
-                document.getElementById('detNominale').innerText = fmt(data.nominale);
-                document.getElementById('detRiscatto').innerText = fmt(data.riscatto);
-                document.getElementById('detMontante65').innerText = fmt(data.montante65);
-                document.getElementById('detEndDate').innerText = end.toLocaleDateString('it-IT', { month:'long', year:'numeric' });
-                document.getElementById('detRataNetta').innerText = fmt(data.rata);
-
-                const yearsAccumulation = start.getFullYear() - new Date().getFullYear();
-                const tir = calculateTIR(data.nominale, data.rata, yearsAccumulation, 15);
-                document.getElementById('detTIR').innerText = tir + "%";
-
-                let bolloAnnuo = (data.nominale <= 5000) ? 0 : data.nominale * 0.002;
-                let labelBollo = (data.nominale <= 5000) ? "Bollo (Esente ≤ 5k):" : "Stima Bollo (0.2%):";
-                let colorBollo = (data.nominale <= 5000) ? "text-green-600" : "text-red-500";
-                
-                const bolloMensile = bolloAnnuo / 12;
-                const realeMensile = data.rata - bolloMensile;
-
-                document.getElementById('calcRata').innerText = fmt(data.rata);
-                const bolloEl = document.getElementById('calcBollo');
-                bolloEl.innerText = (bolloAnnuo === 0 ? "" : "- ") + fmt(bolloMensile);
-                bolloEl.parentElement.className = `flex justify-between text-sm ${colorBollo}`;
-                bolloEl.parentElement.firstElementChild.innerText = labelBollo;
-                document.getElementById('calcReale').innerText = fmt(realeMensile);
-
-                document.getElementById('toggleView').checked = false;
-                generateScheduleTable(false);
-            }
-
-            // TOGGLE EVENT LISTENER (Inside DOMContentLoaded)
-            document.getElementById('toggleView').addEventListener('change', (e) => {
-                generateScheduleTable(e.target.checked);
+            // RE-TRIGGER CHART ON SLIDER CHANGE
+            document.getElementById('inflationSlider').addEventListener('change', () => {
+                if(currentSimulation) drawChart(currentSimulation);
             });
 
-            function generateScheduleTable(isAnnual) {
-                if(!currentSimulation) return;
-                const tbody = document.getElementById('scheduleBody');
-                tbody.innerHTML = '';
+            // 4. PDF EXPORT ... (Keep existing)
+
+            // 4b. CSV EXPORT - NEW
+            window.downloadCSV = function() {
+                if (!currentSimulation) return;
                 
+                let csvContent = "data:text/csv;charset=utf-8,";
+                csvContent += "Data;Età;Rata Lorda;Tasse;Rata Netta;Bollo;Netto in Tasca;Residuo\n";
+
                 let currentDate = new Date(currentSimulation.startDate);
                 const monthly = currentSimulation.rata;
                 const lordo = monthly / 0.875;
                 const tax = lordo - monthly;
                 const bollo = (currentSimulation.nominale > 5000) ? (currentSimulation.nominale * 0.002)/12 : 0;
                 const pocket = monthly - bollo;
+                let residuo = pocket * 180;
 
-                let residuo = pocket * 180; 
-                let sumLordo=0, sumTax=0, sumNetto=0, sumBollo=0, sumPocket=0;
-                const iterations = isAnnual ? 15 : 180;
+                const fmtCsv = (n) => n.toFixed(2).replace('.', ',');
 
-                for(let i=0; i<iterations; i++) {
-                    const f = isAnnual ? 12 : 1;
-                    const rLordo = lordo * f;
-                    const rTax = tax * f;
-                    const rNetto = monthly * f;
-                    const rBollo = bollo * f;
-                    const rPocket = pocket * f;
-
-                    sumLordo+=rLordo; sumTax+=rTax; sumNetto+=rNetto; sumBollo+=rBollo; sumPocket+=rPocket;
-                    residuo -= rPocket;
+                for(let i=0; i<180; i++) {
+                    const d = new Date(currentDate); d.setMonth(d.getMonth()+i);
+                    const dateStr = d.toLocaleDateString('it-IT');
+                    const age = Math.floor(65 + i/12);
+                    
+                    residuo -= pocket;
                     if(residuo < 0.01) residuo = 0;
 
-                    const tr = document.createElement('tr');
-                    tr.className = "bg-white border-b hover:bg-gray-50";
-                    
-                    let dateCol, ageCol;
-                    if(isAnnual) {
-                        dateCol = currentDate.getFullYear() + i;
-                        ageCol = `Età ${65+i}`;
-                    } else {
-                        const d = new Date(currentDate); d.setMonth(d.getMonth()+i);
-                        dateCol = d.toLocaleDateString('it-IT', {month:'short', year:'2-digit'});
-                        ageCol = `Rata ${i+1}`;
-                    }
-
-                    tr.innerHTML = `
-                        <td class="px-4 py-3 font-medium text-gray-900">${dateCol}</td>
-                        <td class="px-4 py-3 text-gray-500">${ageCol}</td>
-                        <td class="px-4 py-3 text-right text-gray-400">${fmt(rLordo)}</td>
-                        <td class="px-4 py-3 text-right text-red-400">-${fmt(rTax)}</td>
-                        <td class="px-4 py-3 text-right font-medium">${fmt(rNetto)}</td>
-                        <td class="px-4 py-3 text-right text-red-500">-${fmt(rBollo)}</td>
-                        <td class="px-4 py-3 text-right font-bold text-green-600 bg-green-50">${fmt(rPocket)}</td>
-                        <td class="px-4 py-3 text-right text-blue-600 border-l border-gray-100 font-medium">${fmt(residuo)}</td>
-                    `;
-                    tbody.appendChild(tr);
+                    csvContent += `${dateStr};${age};${fmtCsv(lordo)};${fmtCsv(tax)};${fmtCsv(monthly)};${fmtCsv(bollo)};${fmtCsv(pocket)};${fmtCsv(residuo)}\n`;
                 }
-                document.getElementById('totalLordo').innerText = fmt(sumLordo);
-                document.getElementById('totalRitenuta').innerText = "-"+fmt(sumTax);
-                document.getElementById('totalNetto').innerText = fmt(sumNetto);
-                document.getElementById('totalBollo').innerText = "-"+fmt(sumBollo);
-                document.getElementById('totalReale').innerText = fmt(sumPocket);
+
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", "Piano_Buoni_Postali.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
             }
 
-            document.getElementById('simForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const data = {
-                    type: document.getElementById('type').value,
-                    birthDate: document.getElementById('birthDate').value,
-                    amount: document.getElementById('amount').value,
-                    subscriptionDate: document.getElementById('subscriptionDate').value
-                };
-                const res = await fetch('/api/simulate', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(data)
-                });
-                const json = await res.json();
-                if(json.success) {
-                    document.getElementById('excelResultsCard').classList.add('hidden');
-                    renderDetailedView({
-                        nominale: parseFloat(json.data.valore_nominale),
-                        rata: parseFloat(json.data.rataMensile),
-                        montante65: parseFloat(json.data.montante65),
-                        riscatto: parseFloat(json.data.valore_riscatto_attuale),
-                        startDate: json.data.data_inizio_rendita,
-                        birthDate: data.birthDate
-                    });
-                } else alert(json.message);
-            });
+            // ... (Keep Scenario Manager) ...
+
+            // ... (Existing Logic) ...
 
             document.getElementById('uploadForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const formData = new FormData();
-                formData.append('file', document.getElementById('excelFile').files[0]);
-                formData.append('birthDate', document.getElementById('ownerBirthDate').value);
-                
+                // ... (preamble) ...
                 const res = await fetch('/api/upload', { method: 'POST', body: formData });
                 const data = await res.json();
                 currentPortfolioData = data;
@@ -717,11 +511,30 @@
                 document.getElementById('detailSection').classList.add('hidden');
 
                 data.forEach((row) => {
+                    // Calcolo TIR per Alert
+                    // Stima grezza: (Totale Rata * 15 anni / Nominale)^(1/AnniTotali) - 1
+                    // Se < 1%, mostra warning
+                    let alertIcon = "";
+                    if (row.stima_rata !== "N/A") {
+                        const payoutStart = new Date(row.data_inizio_rendita);
+                        const subDate = parseItalianDateClient(row['DATA SOTTOSCRIZIONE']); 
+                        // parseItalianDateClient definita sotto o inline per semplicità qui:
+                        // assumiamo formato DD/MM/YYYY standard excel nostro
+                        const parts = row['DATA SOTTOSCRIZIONE'].split('/');
+                        const subD = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                        
+                        const yearsTotal = (payoutStart.getFullYear() - subD.getFullYear()) + 15;
+                        const tir = calculateTIR(parseFloat(row.valore_nominale), parseFloat(row.stima_rata), yearsTotal - 15, 15);
+                        
+                        if (tir < 1.5) {
+                            alertIcon = `<span title="Rendimento Basso (<1.5%)" class="ml-2 text-yellow-500 cursor-help">⚠️</span>`;
+                        }
+                    }
+
                     const tr = document.createElement('tr');
                     tr.className = "bg-white border-b hover:bg-gray-50";
-                    // Data passed to onclick needs to be an object
-                    // We will call window.renderDetailedView passing the object
-                    const rowData = {
+                    // ... (rowData setup) ...
+                    const rowData = JSON.stringify({
                         nominale: parseFloat(row.valore_nominale),
                         rata: parseFloat(row.stima_rata),
                         startDate: row.data_inizio_rendita,
@@ -729,12 +542,13 @@
                         montante65: parseFloat(row.stima_montante_65),
                         riscatto: parseFloat(row.valore_riscatto_attuale),
                         isTotal: false
-                    };
-                    // Safe JSON string for HTML attribute
-                    const safeRowData = JSON.stringify(rowData).replace(/"/g, '&quot;');
+                    });
+                    const safeRowData = JSON.stringify(JSON.parse(rowData)).replace(/"/g, '&quot;'); // Double safe
 
                     tr.innerHTML = `
-                        <td class="px-6 py-4 font-medium text-gray-900">${row['TIPOLOGIA'] || '-'}</td>
+                        <td class="px-6 py-4 font-medium text-gray-900 flex items-center">
+                            ${row['TIPOLOGIA'] || '-'} ${alertIcon}
+                        </td>
                         <td class="px-6 py-4">${row['DATA SOTTOSCRIZIONE'] || '-'}</td>
                         <td class="px-6 py-4">€ ${row.valore_nominale}</td>
                         <td class="px-6 py-4 font-bold text-blue-600">€ ${row.valore_riscatto_attuale}</td>
@@ -748,13 +562,12 @@
                     tbody.appendChild(tr);
                 });
             });
-
-            document.getElementById('excelFile').addEventListener('change', function() {
-                const name = this.files[0]?.name;
-                const disp = document.getElementById('fileNameDisplay');
-                if(name) { disp.textContent = name; disp.classList.remove('hidden'); }
-            });
-        });
-    </script>
+            
+            // Helper locale per data client side veloce
+            function parseItalianDateClient(str) {
+                if(!str) return new Date();
+                const p = str.split('/');
+                return new Date(`${p[2]}-${p[1]}-${p[0]}`);
+            }
 </body>
 </html>

@@ -114,3 +114,6 @@ uploads/
 
 # Office Temp Files
 ~$*
+
+# Utility folder with original files
+utils/
