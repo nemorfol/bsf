@@ -21,8 +21,13 @@ app.listen(port, async () => {
     }
 });
 
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
+
+// Route principale esplicita per Vercel
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // Helper: Calcola età con precisione semestrale (es. 54.5)
 function calculateAge(birthDate, refDate = new Date()) {
