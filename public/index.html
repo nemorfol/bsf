@@ -181,7 +181,7 @@
                             <label for="autoTotal" class="text-xs text-gray-900 font-medium">Calcola Totale Autom.</label>
                         </div>
                         <div class="flex items-center justify-center gap-2 mb-3">
-                            <input type="checkbox" id="showAccumulationBollo" class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500" onchange="renderDetailedView(currentSimulation)">
+                            <input type="checkbox" id="showAccumulationBollo" class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500" onchange="updateAllViews()">
                             <label for="showAccumulationBollo" class="text-xs text-gray-900 font-medium">Stima Bollo Accumulo</label>
                         </div>
                         <button onclick="addToPortfolio()" class="w-full text-white bg-indigo-600 hover:bg-indigo-700 font-medium rounded-lg text-sm px-5 py-2.5 flex items-center justify-center gap-2">
@@ -304,6 +304,12 @@
                         let chartInstance = null;
         
                         const fmt = (n) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(n);
+                        
+                        window.updateAllViews = function() {
+                            renderPortfolioTable();
+                            if(currentSimulation) renderDetailedView(currentSimulation);
+                        }
+
 
                         function renderPortfolioTable() {
                             const tbody = document.getElementById('excelTableBody');
@@ -313,6 +319,7 @@
                             }
                             
                             const ownerDob = document.getElementById('ownerBirthDate').value;
+                            const showBolloAcc = document.getElementById('showAccumulationBollo').checked;
 
                             currentPortfolioData.forEach((row, index) => {
                                 const tr = document.createElement('tr');
@@ -321,22 +328,47 @@
                                 const rowBirthDate = row.birthDate || ownerDob;
                                 const nominale = parseFloat(row.valore_nominale);
                                 const rataNetta = parseFloat(row.stima_rata);
+                                const montante = parseFloat(row.stima_montante_65);
                                 
-                                // Calcolo In Tasca (Rata - Bollo)
-                                let bolloMensile = 0;
+                                // Calcolo Bollo Accumulo (Impatto su Rata Base)
+                                let rataBase = rataNetta;
+                                if (showBolloAcc && nominale > 5000) {
+                                     // Calculate Duration
+                                     let subYear = new Date().getFullYear();
+                                     const subDate = row.subscriptionDate || row['DATA SOTTOSCRIZIONE'];
+                                     if(subDate) {
+                                         if(subDate.includes('/')) subYear = parseInt(subDate.split('/')[2]);
+                                         else subYear = new Date(subDate).getFullYear();
+                                     }
+                                     const startYear = new Date(row.data_inizio_rendita).getFullYear();
+                                     const duration = Math.max(0, startYear - subYear);
+                                     
+                                     let bolloAnnuo = nominale * 0.002;
+                                     if(bolloAnnuo < 1) bolloAnnuo = 1; 
+                                     const totalBolloAcc = bolloAnnuo * duration;
+                                     
+                                     // Riduci proporzionalmente la rata
+                                     if(montante > 0) {
+                                         const factor = (montante - totalBolloAcc) / montante;
+                                         rataBase = rataNetta * factor;
+                                     }
+                                }
+
+                                // Calcolo In Tasca (Rata Base - Bollo Rendita)
+                                let bolloRenditaMensile = 0;
                                 if (nominale > 5000) {
                                     let bAnnuo = nominale * 0.002;
                                     if (bAnnuo < 1) bAnnuo = 1;
-                                    bolloMensile = bAnnuo / 12;
+                                    bolloRenditaMensile = bAnnuo / 12;
                                 }
-                                const rataInTasca = rataNetta - bolloMensile;
+                                const rataInTasca = rataBase - bolloRenditaMensile;
 
                                 const rowData = {
                                     nominale: nominale,
-                                    rata: rataNetta, // Keep base rata for detail view calculation consistency
+                                    rata: rataNetta, // Pass RAW rata to detail view, let detailed view handle its own toggle logic
                                     startDate: row.data_inizio_rendita,
                                     birthDate: rowBirthDate,
-                                    montante65: parseFloat(row.stima_montante_65),
+                                    montante65: montante,
                                     riscatto: parseFloat(row.valore_riscatto_attuale),
                                     subscriptionDate: row.subscriptionDate || row['DATA SOTTOSCRIZIONE'], 
                                     isTotal: false
@@ -805,8 +837,18 @@
                     : '';
                 
                 document.getElementById('detMontante65').innerHTML = `${fmt(data.montante65)} ${bolloText}`;
+                
+                // ADJUST RATA BASE based on Accumulation Bollo (Capital Erosion)
+                let rataBase = data.rata;
+                if(totalBolloAccumulo > 0 && data.montante65 > 0) {
+                    const erosionFactor = (data.montante65 - totalBolloAccumulo) / data.montante65;
+                    rataBase = data.rata * erosionFactor;
+                }
 
-                // Bollo Logic
+                // Update "Rata Base (Netto Fiscale)" Card
+                document.getElementById('detRataNetta').innerText = fmt(rataBase);
+
+                // Bollo Logic (Rendita Phase)
                 // Regola: Esente se <= 5000. Altrimenti 0.20% con Minimo 1€
                 let bolloAnnuo = 0;
                 let labelBollo = "Bollo (Esente ≤ 5k):";
@@ -820,9 +862,9 @@
                 }
                 
                 const bolloMensile = bolloAnnuo / 12;
-                const realeMensile = data.rata - bolloMensile;
+                const realeMensile = rataBase - bolloMensile; // Use Adjusted RataBase
 
-                document.getElementById('calcRata').innerText = fmt(data.rata);
+                document.getElementById('calcRata').innerText = fmt(rataBase); // Update In Tasca Start Value
                 const bolloEl = document.getElementById('calcBollo');
                 bolloEl.innerText = (bolloAnnuo === 0 ? "" : "- ") + fmt(bolloMensile);
                 bolloEl.parentElement.className = `flex justify-between text-sm ${colorBollo}`;
@@ -830,31 +872,36 @@
                 document.getElementById('calcReale').innerText = fmt(realeMensile);
 
                 document.getElementById('toggleView').checked = false;
-                generateScheduleTable(false);
+                generateScheduleTable(false, rataBase, bolloMensile); // Pass values to Schedule
             }
 
             document.getElementById('toggleView').addEventListener('change', (e) => {
-                generateScheduleTable(e.target.checked);
+                // Need to recapture current values... 
+                // Better to store calculated values globally or pass them via updateAllLogic
+                // For now, let's just trigger renderDetailedView again which is safer
+                renderDetailedView(currentSimulation); 
             });
 
-            function generateScheduleTable(isAnnual) {
+            function generateScheduleTable(isAnnual, rataBase, bolloMensile) {
                 if(!currentSimulation) return;
                 const tbody = document.getElementById('scheduleBody');
                 tbody.innerHTML = '';
                 
+                // If arguments missing (called from elsewhere), recalculate or fallback
+                if(typeof rataBase === 'undefined') rataBase = currentSimulation.rata;
+                // ... logic continuation for table generation using rataBase ...
+                
                 let currentDate = new Date(currentSimulation.startDate);
-                const monthly = currentSimulation.rata;
+                const monthly = rataBase; 
+                // ...
+                // Re-implementing logic with `monthly`
+                
                 const lordo = monthly / 0.875;
                 const tax = lordo - monthly;
                 
-                // Calcolo Bollo per Tabella
-                let bolloAnnuo = 0;
-                if (currentSimulation.nominale > 5000) {
-                    let calcolo = currentSimulation.nominale * 0.002;
-                    bolloAnnuo = calcolo < 1.00 ? 1.00 : calcolo;
-                }
-                const bollo = bolloAnnuo / 12; // Mensile
+                const bollo = bolloMensile || 0; // Mensile
                 const pocket = monthly - bollo;
+
 
                 let residuo = pocket * 180; 
                 let sumLordo=0, sumTax=0, sumNetto=0, sumBollo=0, sumPocket=0;
