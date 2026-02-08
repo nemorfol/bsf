@@ -172,6 +172,13 @@
                         <button onclick="downloadCSV()" class="w-full text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-sm px-5 py-2.5 flex items-center justify-center gap-2">
                             <span>📊</span> Scarica Dati CSV
                         </button>
+                        <div class="flex items-center justify-center gap-2 mb-1">
+                            <input type="checkbox" id="autoTotal" class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500">
+                            <label for="autoTotal" class="text-xs text-gray-900 font-medium">Calcola Totale Autom.</label>
+                        </div>
+                        <button onclick="addToPortfolio()" class="w-full text-white bg-indigo-600 hover:bg-indigo-700 font-medium rounded-lg text-sm px-5 py-2.5 flex items-center justify-center gap-2">
+                            <span>➕</span> Aggiungi a Portafoglio
+                        </button>
                     </div>
                 </div>
             </div>
@@ -289,6 +296,106 @@
                         let chartInstance = null;
         
                         const fmt = (n) => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(n);
+
+                        function renderPortfolioTable() {
+                            const tbody = document.getElementById('excelTableBody');
+                            tbody.innerHTML = '';
+                            if (currentPortfolioData.length > 0) {
+                                document.getElementById('excelResultsCard').classList.remove('hidden');
+                            }
+                            
+                            const ownerDob = document.getElementById('ownerBirthDate').value;
+
+                            currentPortfolioData.forEach((row, index) => {
+                                const tr = document.createElement('tr');
+                                tr.className = "bg-white border-b hover:bg-gray-50";
+                                
+                                const rowBirthDate = row.birthDate || ownerDob;
+
+                                const rowData = {
+                                    nominale: parseFloat(row.valore_nominale),
+                                    rata: parseFloat(row.stima_rata),
+                                    startDate: row.data_inizio_rendita,
+                                    birthDate: rowBirthDate,
+                                    montante65: parseFloat(row.stima_montante_65),
+                                    riscatto: parseFloat(row.valore_riscatto_attuale),
+                                    isTotal: false
+                                };
+                                const safeRowData = JSON.stringify(rowData).replace(/"/g, '&quot;');
+                                
+                                const safeFmt = (v) => {
+                                    const parsed = parseFloat(v);
+                                    return isNaN(parsed) ? '-' : fmt(parsed);
+                                };
+
+                                tr.innerHTML = `
+                                    <td class="px-6 py-4 font-medium text-gray-900">${row['TIPOLOGIA'] || '-'}</td>
+                                    <td class="px-6 py-4">${row['DATA SOTTOSCRIZIONE'] || '-'}</td>
+                                    <td class="px-6 py-4">${safeFmt(row.valore_nominale)}</td>
+                                    <td class="px-6 py-4 font-bold text-blue-600">${safeFmt(row.valore_riscatto_attuale)}</td>
+                                    <td class="px-6 py-4 font-bold ${row.stima_rata==='N/A'?'text-gray-400':'text-green-600'}">${(typeof row.stima_rata === 'number' || parseFloat(row.stima_rata)) ? safeFmt(row.stima_rata) : row.stima_rata}</td>
+                                    <td class="px-6 py-4 flex items-center gap-3">
+                                        ${row.stima_rata !== 'N/A' ? 
+                                        `<button onclick="renderDetailedView(${safeRowData})" class="font-medium text-poste-blue hover:underline">Dettagli</button>` 
+                                        : '<span class="text-gray-400">-</span>'}
+                                        <button onclick="removeFromPortfolio(${index})" class="text-red-500 hover:text-red-700 font-bold" title="Elimina">
+                                            ✕
+                                        </button>
+                                    </td>
+                                `;
+                                tbody.appendChild(tr);
+                            });
+                        }
+
+                        window.removeFromPortfolio = function(index) {
+                            if(confirm("Sei sicuro di voler eliminare questo buono dal portafoglio?")) {
+                                currentPortfolioData.splice(index, 1);
+                                renderPortfolioTable();
+                                
+                                if(currentPortfolioData.length === 0) {
+                                     document.getElementById('excelResultsCard').classList.add('hidden');
+                                     document.getElementById('detailSection').classList.add('hidden');
+                                     currentSimulation = null;
+                                } else {
+                                    // Ricalcola se era attivo il Totale o se c'è la spunta Auto
+                                    const isShowingTotal = currentSimulation && currentSimulation.isTotal;
+                                    const autoCal = document.getElementById('autoTotal').checked;
+                                    
+                                    if(isShowingTotal || autoCal) {
+                                        showPortfolioTotal();
+                                    }
+                                }
+                            }
+                        }
+
+                        window.addToPortfolio = function() {
+                            if(!currentSimulation) return;
+                            
+                            const newRow = {
+                                'TIPOLOGIA': `Simulazione: ${currentSimulation.type === 'Obiettivo65' ? 'Obiettivo 65' : 'Soluzione Futuro'}`,
+                                'DATA SOTTOSCRIZIONE': currentSimulation.subscriptionDate ? new Date(currentSimulation.subscriptionDate).toLocaleDateString('it-IT') : new Date().toLocaleDateString('it-IT'),
+                                valore_nominale: currentSimulation.nominale,
+                                valore_riscatto_attuale: currentSimulation.riscatto,
+                                stima_rata: currentSimulation.rata,
+                                stima_montante_65: currentSimulation.montante65,
+                                data_inizio_rendita: currentSimulation.startDate,
+                                birthDate: currentSimulation.birthDate
+                            };
+                            
+                            const typeVal = document.getElementById('type').value;
+                            newRow['TIPOLOGIA'] = `Simulazione: ${typeVal === 'Obiettivo65' ? 'Obiettivo 65' : 'Soluzione Futuro'}`;
+
+                            currentPortfolioData.push(newRow);
+                            renderPortfolioTable();
+                            
+                            if(document.getElementById('autoTotal').checked) {
+                                showPortfolioTotal();
+                                alert("Aggiunto e Totale Calcolato!");
+                            } else {
+                                document.getElementById('excelResultsCard').scrollIntoView({ behavior: 'smooth' });
+                                alert("Aggiunto!");
+                            }
+                        }
         
                         function calculateTIR(investment, monthlyPayout, yearsAccumulation, payoutYears) {
                             const totalPayout = monthlyPayout * 12 * payoutYears;
@@ -754,12 +861,14 @@
                 if(json.success) {
                     document.getElementById('excelResultsCard').classList.add('hidden');
                     renderDetailedView({
+                        type: data.type,
                         nominale: parseFloat(json.data.valore_nominale),
                         rata: parseFloat(json.data.rataMensile),
                         montante65: parseFloat(json.data.montante65),
                         riscatto: parseFloat(json.data.valore_riscatto_attuale),
                         startDate: json.data.data_inizio_rendita,
-                        birthDate: data.birthDate
+                        birthDate: data.birthDate,
+                        subscriptionDate: data.subscriptionDate
                     });
                 } else alert(json.message);
             });
@@ -774,39 +883,9 @@
                 const data = await res.json();
                 currentPortfolioData = data;
                 
-                const tbody = document.getElementById('excelTableBody');
-                tbody.innerHTML = '';
-                document.getElementById('excelResultsCard').classList.remove('hidden');
+                renderPortfolioTable();
+                
                 document.getElementById('detailSection').classList.add('hidden');
-
-                data.forEach((row) => {
-                    const tr = document.createElement('tr');
-                    tr.className = "bg-white border-b hover:bg-gray-50";
-                    const rowData = {
-                        nominale: parseFloat(row.valore_nominale),
-                        rata: parseFloat(row.stima_rata),
-                        startDate: row.data_inizio_rendita,
-                        birthDate: document.getElementById('ownerBirthDate').value,
-                        montante65: parseFloat(row.stima_montante_65),
-                        riscatto: parseFloat(row.valore_riscatto_attuale),
-                        isTotal: false
-                    };
-                    const safeRowData = JSON.stringify(rowData).replace(/"/g, '&quot;');
-
-                    tr.innerHTML = `
-                        <td class="px-6 py-4 font-medium text-gray-900">${row['TIPOLOGIA'] || '-'}</td>
-                        <td class="px-6 py-4">${row['DATA SOTTOSCRIZIONE'] || '-'}</td>
-                        <td class="px-6 py-4">€ ${row.valore_nominale}</td>
-                        <td class="px-6 py-4 font-bold text-blue-600">€ ${row.valore_riscatto_attuale}</td>
-                        <td class="px-6 py-4 font-bold ${row.stima_rata==='N/A'?'text-gray-400':'text-green-600'}">${row.stima_rata}</td>
-                        <td class="px-6 py-4">
-                            ${row.stima_rata !== 'N/A' ? 
-                            `<button onclick="renderDetailedView(${safeRowData})" class="font-medium text-poste-blue hover:underline">Dettagli ></button>` 
-                            : '<span class="text-gray-400">-</span>'}
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
             });
 
             document.getElementById('excelFile').addEventListener('change', function() {
