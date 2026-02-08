@@ -319,6 +319,7 @@
                                     birthDate: rowBirthDate,
                                     montante65: parseFloat(row.stima_montante_65),
                                     riscatto: parseFloat(row.valore_riscatto_attuale),
+                                    subscriptionDate: row.subscriptionDate || row['DATA SOTTOSCRIZIONE'], // Handle both
                                     isTotal: false
                                 };
                                 const safeRowData = JSON.stringify(rowData).replace(/"/g, '&quot;');
@@ -745,6 +746,39 @@
                 const yearsAccumulation = start.getFullYear() - new Date().getFullYear();
                 const tir = calculateTIR(data.nominale, data.rata, yearsAccumulation, 15);
                 document.getElementById('detTIR').innerText = tir + "%";
+
+                // Determine subscription year (parse DD/MM/YYYY or YYYY-MM-DD)
+                let subYear = new Date().getFullYear();
+                if (data.subscriptionDate) {
+                    if (data.subscriptionDate.includes('/')) {
+                        const parts = data.subscriptionDate.split('/'); // DD/MM/YYYY
+                        if(parts.length === 3) subYear = parseInt(parts[2]);
+                    } else {
+                        subYear = new Date(data.subscriptionDate).getFullYear();
+                    }
+                }
+
+                const durationYears = start.getFullYear() - subYear;
+                // TIR uses duration from NOW? Or Subscription? 
+                // Usually TIR is on remaining duration for valuation, but on total for historical.
+                // Keeping TIR as is (yearsAccumulation from now) for "Future Potential" or changing it? 
+                // Creating a specific `yearsForBollo` variable.
+                const yearsForBollo = Math.max(0, durationYears);
+
+                // Calcolo Bollo Accumulo
+                // Stima: 0.20% annuo sul nominale per gli anni di accumulo
+                let totalBolloAccumulo = 0;
+                if (data.nominale > 5000) {
+                     // Minimo 1€ per anno, ma su grandi cifre è 0.2%
+                     let bolloAnnuo = data.nominale * 0.002;
+                     if(bolloAnnuo < 1) bolloAnnuo = 1; 
+                     totalBolloAccumulo = bolloAnnuo * yearsForBollo;
+                }
+                
+                // Add indication to Montante
+                const montanteNettoBollo = data.montante65 - totalBolloAccumulo;
+                document.getElementById('detMontante65').innerHTML = 
+                    `${fmt(data.montante65)} <span class="text-xs text-red-500 block font-normal">(- ${fmt(totalBolloAccumulo)} bollo acc. tot.)</span>`;
 
                 // Bollo Logic
                 // Regola: Esente se <= 5000. Altrimenti 0.20% con Minimo 1€
