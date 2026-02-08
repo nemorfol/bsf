@@ -113,7 +113,7 @@
                             <th class="px-6 py-3">Sottoscrizione</th>
                             <th class="px-6 py-3">Nominale</th>
                             <th class="px-6 py-3">Valore Oggi</th>
-                            <th class="px-6 py-3">Rata Netta (Est.)</th>
+                            <th class="px-6 py-3">Rata (In Tasca)</th>
                             <th class="px-6 py-3">Azioni</th>
                         </tr>
                     </thead>
@@ -175,6 +175,10 @@
                         <div class="flex items-center justify-center gap-2 mb-1">
                             <input type="checkbox" id="autoTotal" class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500">
                             <label for="autoTotal" class="text-xs text-gray-900 font-medium">Calcola Totale Autom.</label>
+                        </div>
+                        <div class="flex items-center justify-center gap-2 mb-3">
+                            <input type="checkbox" id="showAccumulationBollo" class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500" onchange="renderDetailedView(currentSimulation)">
+                            <label for="showAccumulationBollo" class="text-xs text-gray-900 font-medium">Stima Bollo Accumulo</label>
                         </div>
                         <button onclick="addToPortfolio()" class="w-full text-white bg-indigo-600 hover:bg-indigo-700 font-medium rounded-lg text-sm px-5 py-2.5 flex items-center justify-center gap-2">
                             <span>➕</span> Aggiungi a Portafoglio
@@ -311,15 +315,26 @@
                                 tr.className = "bg-white border-b hover:bg-gray-50";
                                 
                                 const rowBirthDate = row.birthDate || ownerDob;
+                                const nominale = parseFloat(row.valore_nominale);
+                                const rataNetta = parseFloat(row.stima_rata);
+                                
+                                // Calcolo In Tasca (Rata - Bollo)
+                                let bolloMensile = 0;
+                                if (nominale > 5000) {
+                                    let bAnnuo = nominale * 0.002;
+                                    if (bAnnuo < 1) bAnnuo = 1;
+                                    bolloMensile = bAnnuo / 12;
+                                }
+                                const rataInTasca = rataNetta - bolloMensile;
 
                                 const rowData = {
-                                    nominale: parseFloat(row.valore_nominale),
-                                    rata: parseFloat(row.stima_rata),
+                                    nominale: nominale,
+                                    rata: rataNetta, // Keep base rata for detail view calculation consistency
                                     startDate: row.data_inizio_rendita,
                                     birthDate: rowBirthDate,
                                     montante65: parseFloat(row.stima_montante_65),
                                     riscatto: parseFloat(row.valore_riscatto_attuale),
-                                    subscriptionDate: row.subscriptionDate || row['DATA SOTTOSCRIZIONE'], // Handle both
+                                    subscriptionDate: row.subscriptionDate || row['DATA SOTTOSCRIZIONE'], 
                                     isTotal: false
                                 };
                                 const safeRowData = JSON.stringify(rowData).replace(/"/g, '&quot;');
@@ -332,9 +347,11 @@
                                 tr.innerHTML = `
                                     <td class="px-6 py-4 font-medium text-gray-900">${row['TIPOLOGIA'] || '-'}</td>
                                     <td class="px-6 py-4">${row['DATA SOTTOSCRIZIONE'] || '-'}</td>
-                                    <td class="px-6 py-4">${safeFmt(row.valore_nominale)}</td>
+                                    <td class="px-6 py-4">${safeFmt(nominale)}</td>
                                     <td class="px-6 py-4 font-bold text-blue-600">${safeFmt(row.valore_riscatto_attuale)}</td>
-                                    <td class="px-6 py-4 font-bold ${row.stima_rata==='N/A'?'text-gray-400':'text-green-600'}">${(typeof row.stima_rata === 'number' || parseFloat(row.stima_rata)) ? safeFmt(row.stima_rata) : row.stima_rata}</td>
+                                    <td class="px-6 py-4 font-bold ${row.stima_rata==='N/A'?'text-gray-400':'text-green-600'}">
+                                        ${(typeof row.stima_rata === 'number' || parseFloat(row.stima_rata)) ? safeFmt(rataInTasca) : row.stima_rata}
+                                    </td>
                                     <td class="px-6 py-4 flex items-center gap-3">
                                         ${row.stima_rata !== 'N/A' ? 
                                         `<button onclick="renderDetailedView(${safeRowData})" class="font-medium text-poste-blue hover:underline">Dettagli</button>` 
@@ -765,10 +782,12 @@
                 // Creating a specific `yearsForBollo` variable.
                 const yearsForBollo = Math.max(0, durationYears);
 
-                // Calcolo Bollo Accumulo
+                // Calcolo Bollo Accumulo (Opzionale)
                 // Stima: 0.20% annuo sul nominale per gli anni di accumulo
                 let totalBolloAccumulo = 0;
-                if (data.nominale > 5000) {
+                const showBolloAcc = document.getElementById('showAccumulationBollo').checked;
+                
+                if (showBolloAcc && data.nominale > 5000) {
                      // Minimo 1€ per anno, ma su grandi cifre è 0.2%
                      let bolloAnnuo = data.nominale * 0.002;
                      if(bolloAnnuo < 1) bolloAnnuo = 1; 
@@ -776,9 +795,12 @@
                 }
                 
                 // Add indication to Montante
-                const montanteNettoBollo = data.montante65 - totalBolloAccumulo;
-                document.getElementById('detMontante65').innerHTML = 
-                    `${fmt(data.montante65)} <span class="text-xs text-red-500 block font-normal">(- ${fmt(totalBolloAccumulo)} bollo acc. tot.)</span>`;
+                // const montanteNettoBollo = data.montante65 - totalBolloAccumulo; // Visual only
+                const bolloText = totalBolloAccumulo > 0 
+                    ? `<span class="text-xs text-red-500 block font-normal">(- ${fmt(totalBolloAccumulo)} bollo acc. tot.)</span>` 
+                    : '';
+                
+                document.getElementById('detMontante65').innerHTML = `${fmt(data.montante65)} ${bolloText}`;
 
                 // Bollo Logic
                 // Regola: Esente se <= 5000. Altrimenti 0.20% con Minimo 1€
